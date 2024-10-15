@@ -1,0 +1,334 @@
+from openpyxl import Workbook
+import time
+import threading
+import sys
+'''
+#####################################Kod do testwoania - same testy - generator w drugim pliku###################################################################################
+#Z listy następników
+def HamiltonianCycleL(graph):
+    n = len(graph) #liczba wierzchołków grafu
+    O = [False] * n  #tablica, w której zaznaczamy odwiedzone wierzchołki
+    Path = []  #lista zawierająca konstruowany cykl Hamiltona
+    start = 0  #startowy wierzchołek
+    visited = 0  #licznik odwiedzonych wierzchołków
+    k = 0  #indeks następnego elementu w ścieżce
+
+    def HamiltonianL(v):
+        nonlocal visited, k #zmienne zadnieżdżone w fukcji głównej
+
+        O[v] = True #wierzchołek odwiedzony
+        visited += 1
+
+        Path.append(v)
+
+        if visited == n and start in graph[v]:
+            return True #czy odwiedzone wszystkie oraz czy isteje połacznenie z początkiem
+
+        for i in graph[v]:
+            if not O[i]: #jeśli nie sprawdzamy wszystkie inne sąsiedznie wierzchołki, które nie zostały odwiedzone
+                if HamiltonianL(i):
+                    return True
+
+        O[v] = False #jeśli się okarze, że z żadnego sąsiada nie można jechać dalej cofamy się robiąc go jako nieoznaczony
+        visited -= 1 #oraz zmiejszamy liczbę odwiedoznych wierzchołków
+        Path.pop() #oraz usuawamy wierzchołęk ze scieżki, bo się cofneliśmy o jeden
+        return False
+
+    def HcycleL():
+        nonlocal O, Path, visited, k
+
+        for i in range(n):
+            O[i] = False #na początku wszytskie nieodwiedzoe
+
+        Path.append(start) #dodajemy startowy wierzchołek
+        visited = 1
+
+        for i in graph[start]: #przechodzimy przez wszystkie sąsiednie wierzchołki i wywołujemy funkcję szukania po sąsiadach
+            if HamiltonianL(i): #jak ona nie wyjdzie, cofa się i wtedy zaczynam szukac po innych sąsiadach, jak nie wyjdzie to powtrót itd
+                return Path  #jak ta wyżej da true to daj scieżkę jako cykl Hamiltona
+
+        Path.pop() #jak nic nie wróci true to brak cyklu
+        return "Brak cyklu Hamiltona"
+
+    return HcycleL()
+
+#Z macierzy sąsiedztwa
+def HamiltonianCycleM(graph):
+    n = len(graph) #liczba wierzchołków w grafie
+    path = [0] * n  # tablica zawierająca konstruowany cykl Hamiltona
+    visited = [False] * n  # tablica, w której zaznaczamy odwiedzone wierzchołki, na początku wszystkie na false
+
+    def HamiltonianM(v, pos): #funkcja sprawdza czy można zależć cykl hamiltona zaczynajć do v n apozycji pos w scieżce
+        visited[v] = True #odwiedzony
+        path[pos] = v #dodanie wierzchołka do scieżki
+
+        if pos == n - 1:  #sprawdzenie, czy znaleziono cykl Hamiltona, to zanczy dojechano do końca
+            if graph[v][path[0]] == 1:  #sprawdzenie, czy istnieje krawędź między ostatnim wierzchołkiem a początkowym
+                return True
+            else:
+                visited[v] = False #jesli nie oznaczmy go jako nieodwiedzony
+                return False
+
+        for i in range(n): #przechodzimy przez wszystkie wierzchołki i sprawdzamy czy isteje krawędź między v oraz i
+            if graph[v][i] == 1 and not visited[i]:  #oraz czy i nie był już odwiedzony przypadkiem
+                if HamiltonianM(i, pos + 1): #jesli wszytko jest spełnione szukamy dalej, no i zapismey potem ten wierzchołek na pos + 1
+                    return True #znaleziono cykl Hamiltona
+
+        visited[v] = False #jesli nie uda się nic stworzyć, musimy oznczyć go jako false i szukamy zaczynając od innego
+        return False #jeśli się nie uda zwracamy false
+
+    if HamiltonianM(0, 0): #wywołujemy funkcje od unkty (0,0)
+        return path #jeśli istenje zwróci scieżkę
+    else:
+        return "Brak cyklu Hamiltona"
+########################################################################################################################
+
+def znajdz_cykl_eulera(lista_nastepnikow):
+    def dfs(v, cykl): #przeszukiwanie w głąb DFS od wiezrchołka v
+        while lista_nastepnikow[v]: #dopóki isteją sasiedzi
+            u = lista_nastepnikow[v].pop(0) #usuwamy pierwszego sąsida i przechodimy rekurencyjnie dfs
+            dfs(u, cykl)
+        cykl.append(v) #dodajemy v do cyklu do sprawdzenia
+
+    cykl = []
+    start = None
+    for v in range(len(lista_nastepnikow)): #przechodzimy przez wszystkie wierzchołki
+        if len(lista_nastepnikow[v]) > 0: #jeśli każdy ma minimum jedego sąsiada, czyli brak pustych, przypisujemy do start v i przerywamy
+            start = v
+            break
+
+    if start is None: #jeśli nie znaleziono stratu, czyli wszytskie wierzchołki mają pustą listę następników, nie istnieje cykl Eulera.
+        return None
+
+    dfs(start, cykl) #rozpoczynamy przeszukiwanie w głąb od wierzchołka startowego.
+
+    if sum(len(neighbors) for neighbors in lista_nastepnikow) > 0:
+        return None #czy istnieją jeszcze krawędzie na listach następników wierzchołków. Jeśli tak, oznacza to, że graf nie jest spójny i nie istnieje cykl Eulera
+
+    return cykl[::-1][:-1] #zmiana
+
+def znajdz_cykl_eulera1(macierz_sasiedztwa):
+    n = len(macierz_sasiedztwa) #ilość wierzchołków
+    cykl = []
+
+    def dfs(v):
+        nonlocal cykl
+
+        for u in range(n): #przechodzimy przez wszystkie wierzchołki grafu
+            if macierz_sasiedztwa[v][u] > 0: #jesli istnieje krawędź oraz przez nią przeszliśmy zminejsz wartość w macierzy o 1, by zazanczyć, że już tędy szliśmy
+                macierz_sasiedztwa[v][u] -= 1
+                macierz_sasiedztwa[u][v] -= 1
+                dfs(u) #rekurencyjne wywołanie
+
+        cykl.append(v) #dodajemy v do cyklu, ponieważ przeszliśmy przez wszystkie jego sąsiednie krawędzie.
+
+    dfs(0) #rozpoczynamy od wierzchołka 0
+
+    if sum(sum(row) for row in macierz_sasiedztwa) > 0: #sprawdzamy, czy nie zostały jakieś nieodwiedzone.
+        return None #Jeśli suma jest większa niż 0, oznacza to, że graf nie jest spójny i nie istnieje cykl Eulera.
+    else:
+        return cykl[::-1]
+########################################################################################################################
+
+def main():
+    i = 0
+    j = 0
+    num = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375]
+
+    wb = Workbook()
+    ws = wb.create_sheet("cyklehamiltona50")
+
+    for n in num:
+        lista = generator_grafow_hamiltona(n, 50, directed=False)
+        macierz = msasiedztwa(lista)
+        start_time = time.perf_counter()
+        cycle = HamiltonianCycleM(macierz)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time)*1000
+        ws.cell(row=2+i, column=2).value = str(czas)
+        i += 1
+        print('h', n)
+
+        lista1 = generator_grafow_hamiltona(n, 50, directed=True)
+        lista_nastepnikow = lnastepnikow(lista1)
+        start_time = time.perf_counter()
+        cyklh1 = HamiltonianCycleL(lista_nastepnikow)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time)*1000
+        ws.cell(row=2+j, column=3).value = str(czas)
+        j += 1
+        print('h', n)
+    wb.save('arkusz1.xlsx')
+    i = 0
+    j = 0
+
+    wb = Workbook()
+    ws = wb.create_sheet("cykleeulera50")
+
+    for n in num:
+        lista = generator_grafow_eulera(n, 50, directed=False)
+        macierz = msasiedztwa(lista)
+        start_time = time.perf_counter()
+        cycle = znajdz_cykl_eulera1(macierz)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + i, column=2).value = str(czas)
+        i += 1
+        print('e', n)
+
+        lista1 = generator_grafow_eulera(n, 50, directed=True)
+        lista_nastepnikow = lnastepnikow(lista1)
+        start_time = time.perf_counter()
+        cyklh1 = znajdz_cykl_eulera(lista_nastepnikow)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + j, column=3).value = str(czas)
+        j += 1
+        print('e', n)
+    wb.save('arkusz2.xlsx')
+    i = 0
+    j = 0
+    i = 0
+    j = 0
+    num = [20, 30, 40, 50, 60, 70, 80, 90]
+
+    wb = Workbook()
+    ws = wb.create_sheet("cyklehamiltona")
+
+    for n in num:
+        lista = generator_grafow_hamiltona(100, n, directed=False)
+        macierz = msasiedztwa(lista)
+        start_time = time.perf_counter()
+        cycle = HamiltonianCycleM(macierz)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + i, column=2).value = str(czas)
+        i += 1
+        print('h', n)
+
+        lista1 = generator_grafow_hamiltona(100, n, directed=True)
+        lista_nastepnikow = lnastepnikow(lista1)
+        start_time = time.perf_counter()
+        cyklh1 = HamiltonianCycleL(lista_nastepnikow)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + j, column=3).value = str(czas)
+        j += 1
+        print('h', n)
+    wb.save('arkusz3.xlsx')
+    i = 0
+    j = 0
+
+    wb = Workbook()
+    ws = wb.create_sheet("cykleeulera")
+
+    for n in num:
+        lista = generator_grafow_eulera(100, n, directed=False)
+        macierz = msasiedztwa(lista)
+        start_time = time.perf_counter()
+        cycle = znajdz_cykl_eulera1(macierz)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + i, column=2).value = str(czas)
+        i += 1
+        print('e', n)
+
+        lista1 = generator_grafow_eulera(100, n, directed=True)
+        lista_nastepnikow = lnastepnikow(lista1)
+        start_time = time.perf_counter()
+        cyklh1 = znajdz_cykl_eulera(lista_nastepnikow)
+        end_time = time.perf_counter()
+        czas = (end_time - start_time) * 1000
+        ws.cell(row=2 + j, column=3).value = str(czas)
+        j += 1
+        print('e', n)
+    wb.save('arkusz4.xlsx')
+    i = 0
+    j = 0
+
+    nas = [30, 40, 50, 60, 70, 80]
+    num = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300]
+
+
+    wb = Workbook()
+    ws = wb.create_sheet("cyklehamiltonaN")
+
+    j = 0
+    for n in num:
+        i = 0
+        for s in nas:
+            lista = generator_grafow_hamiltona(n, s, directed=False)
+            macierz = msasiedztwa(lista)
+            start_time = time.perf_counter()
+            cycle = HamiltonianCycleM(macierz)
+            end_time = time.perf_counter()
+            czas = (end_time - start_time) * 1000
+            ws.cell(row=2 + i, column=2 + j).value = str(czas)
+            i += 1
+            print('h', n)
+        j += 1
+    wb.save('arkusz1.xlsx')
+    wb = Workbook()
+    ws = wb.create_sheet("cyklehamiltonaS")
+
+    j = 0
+    for n in num:
+        i = 0
+        for s in nas:
+            lista1 = generator_grafow_hamiltona(n, s, directed=True)
+            lista_nastepnikow = lnastepnikow(lista1)
+            start_time = time.perf_counter()
+            cyklh1 = HamiltonianCycleL(lista_nastepnikow)
+            end_time = time.perf_counter()
+            czas = (end_time - start_time) * 1000
+            ws.cell(row=2 + i, column=2 + j).value = str(czas)
+            i += 1
+            print('h', n)
+        j += 1
+    wb.save('arkusz2.xlsx')
+
+
+    wb = Workbook()
+    ws = wb.create_sheet("euleraN")
+
+    j = 0
+    for n in num:
+        i = 0
+        for s in nas:
+            lista = generator_grafow_eulera(n, s, directed=False)
+            macierz = msasiedztwa(lista)
+            start_time = time.perf_counter()
+            cycle = znajdz_cykl_eulera1(macierz)
+            end_time = time.perf_counter()
+            czas = (end_time - start_time) * 1000
+            ws.cell(row=2 + i, column=2 + j).value = str(czas)
+            i += 1
+            print('e', n)
+        j += 1
+    wb.save('arkusz3.xlsx')
+
+    wb = Workbook()
+    ws = wb.create_sheet("cykleeuleraS")
+
+    j = 0
+    for n in num:
+        i = 0
+        for s in nas:
+            lista1 = generator_grafow_eulera(n, s, directed=True)
+            lista_nastepnikow = lnastepnikow(lista1)
+            start_time = time.perf_counter()
+            cyklh1 = znajdz_cykl_eulera(lista_nastepnikow)
+            end_time = time.perf_counter()
+            czas = (end_time - start_time) * 1000
+            ws.cell(row=2 + i, column=2 + j).value = str(czas)
+            i += 1
+            print('e', n)
+        j += 1
+    wb.save('arkusz4.xlsx')
+    
+    
+
+threading.stack_size(67108864)
+sys.setrecursionlimit(2**20)
+thread = threading.Thread(target=main)
+thread.start()
